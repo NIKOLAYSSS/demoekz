@@ -125,6 +125,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="QRCodeGeneratorHelper.cs" />
     <Compile Include="Task.cs" />
     <Compile Include="UserManager.cs" />
     <EmbeddedResource Include="AddTaskForm.resx">

@@ -62,7 +62,9 @@
             this.txtTaskNumber = new System.Windows.Forms.TextBox();
             this.btnGenerateQRCode = new System.Windows.Forms.Button();
             this.notificationTimer = new System.Windows.Forms.Timer(this.components);
+            this.pictureBoxQRCode = new System.Windows.Forms.PictureBox();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTasks)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBoxQRCode)).BeginInit();
             this.SuspendLayout();
             // 
             // dgvTasks
@@ -142,7 +144,7 @@
             // 
             // txtStatistics
             // 
-            this.txtStatistics.Location = new System.Drawing.Point(97, 536);
+            this.txtStatistics.Location = new System.Drawing.Point(97, 478);
             this.txtStatistics.Multiline = true;
             this.txtStatistics.Name = "txtStatistics";
             this.txtStatistics.ReadOnly = true;
@@ -154,7 +156,7 @@
             // 
             this.lblStatistics.AutoSize = true;
             this.lblStatistics.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.lblStatistics.Location = new System.Drawing.Point(12, 584);
+            this.lblStatistics.Location = new System.Drawing.Point(12, 526);
             this.lblStatistics.Name = "lblStatistics";
             this.lblStatistics.Size = new System.Drawing.Size(79, 15);
             this.lblStatistics.TabIndex = 35;
@@ -218,7 +220,7 @@
             // 
             this.dtpDueDate.Location = new System.Drawing.Point(647, 368);
             this.dtpDueDate.Name = "dtpDueDate";
-            this.dtpDueDate.Size = new System.Drawing.Size(200, 20);
+            this.dtpDueDate.Size = new System.Drawing.Size(175, 20);
             this.dtpDueDate.TabIndex = 50;
             // 
             // lblStatus
@@ -350,23 +352,32 @@
             // 
             // btnGenerateQRCode
             // 
-            this.btnGenerateQRCode.Location = new System.Drawing.Point(664, 467);
+            this.btnGenerateQRCode.Location = new System.Drawing.Point(484, 397);
             this.btnGenerateQRCode.Name = "btnGenerateQRCode";
-            this.btnGenerateQRCode.Size = new System.Drawing.Size(183, 158);
+            this.btnGenerateQRCode.Size = new System.Drawing.Size(157, 41);
             this.btnGenerateQRCode.TabIndex = 54;
             this.btnGenerateQRCode.Text = "Генирировать qr для отзыва";
             this.btnGenerateQRCode.UseVisualStyleBackColor = true;
-            this.btnGenerateQRCode.Click += new System.EventHandler(this.btnGenerateQRCode_Click);
+            this.btnGenerateQRCode.Click += new System.EventHandler(this.BtnGenerateQRCode_Click);
             // 
             // notificationTimer
             // 
             this.notificationTimer.Interval = 60000;
             // 
+            // pictureBoxQRCode
+            // 
+            this.pictureBoxQRCode.Location = new System.Drawing.Point(647, 397);
+            this.pictureBoxQRCode.Name = "pictureBoxQRCode";
+            this.pictureBoxQRCode.Size = new System.Drawing.Size(175, 173);
+            this.pictureBoxQRCode.TabIndex = 55;
+            this.pictureBoxQRCode.TabStop = false;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(857, 637);
+            this.ClientSize = new System.Drawing.Size(834, 592);
+            this.Controls.Add(this.pictureBoxQRCode);
             this.Controls.Add(this.btnGenerateQRCode);
             this.Controls.Add(this.lblTaskNumber);
             this.Controls.Add(this.txtTaskNumber);
@@ -402,6 +413,7 @@
             this.Name = "Form1";
             this.Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)(this.dgvTasks)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBoxQRCode)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -442,6 +454,7 @@
         private System.Windows.Forms.TextBox txtTaskNumber;
         private System.Windows.Forms.Button btnGenerateQRCode;
         private System.Windows.Forms.Timer notificationTimer;
+        private System.Windows.Forms.PictureBox pictureBoxQRCode;
     }
 }
 

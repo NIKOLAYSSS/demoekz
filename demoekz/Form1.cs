@@ -310,7 +310,8 @@ namespace demoekz
         {
             CalculateStatistics();
         }
-
+        
+        
         private void CalculateStatistics()
         {
             try
@@ -394,48 +395,37 @@ namespace demoekz
             }
         }
 
-        private void GenerateQRCode()
+        private void BtnGenerateQRCode_Click(object sender, EventArgs e)
         {
+            // Получаем данные из текстового поля
+            string qrCodeText = "https://docs.google.com/forms/d/e/1FAIpQLSfkJf4oLCYcKbQggFu97aT6VplRHjBeAAj23LbdNANcQoncPw/viewform?usp=dialog";
+
+            if (string.IsNullOrEmpty(qrCodeText))
+            {
+                MessageBox.Show("Введите данные для генерации QR-кода.");
+                return;
+            }
+
             try
             {
-                // Ссылка на Google Forms
-                string googleFormUrl = "https://docs.google.com/forms/d/10IDcmvxln8ZSzO3hYYyWRgrySgEXfX0nHD8AK1TDUo4/edit";
-
-                // Генерация QR-кода
+                // Генерация QR-кода с помощью QRCoder
                 QRCodeGenerator qrGenerator = new QRCodeGenerator();
-                QRCodeData qrCodeData = qrGenerator.CreateQrCode(googleFormUrl, QRCodeGenerator.ECCLevel.Q);
+                QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrCodeText, QRCodeGenerator.ECCLevel.Q); // Создаем данные QR
+
+                // Генерация QR-кода как изображение
                 QRCode qrCode = new QRCode(qrCodeData);
-                using (Bitmap bitmap = qrCode.GetGraphic(20))
-                {
-                    // Сохранение QR-кода в файл
-                    SaveFileDialog saveFileDialog = new SaveFileDialog
-                    {
-                        Filter = "PNG Files (*.png)|*.png",
-                        Title = "Сохранить QR-код как",
-                        FileName = "QRCode.png"
-                    };
+                Bitmap qrCodeImage = qrCode.GetGraphic(3); // 20 - это размер пикселей QR-кода
 
-                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
-                    {
-                        string filePath = saveFileDialog.FileName;
-                        bitmap.Save(filePath, ImageFormat.Png);
-                        MessageBox.Show("QR-код успешно сгенерирован и сохранен!");
-
-                        // Открытие QR-кода
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(filePath) { UseShellExecute = true });
-                    }
-                }
+                // Отображаем QR-код в PictureBox
+                pictureBoxQRCode.Image = qrCodeImage;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Ошибка: " + ex.Message);
+                MessageBox.Show("Ошибка при генерации QR-кода: " + ex.Message);
             }
         }
 
-        private void btnGenerateQRCode_Click(object sender, EventArgs e)
-        {
-            GenerateQRCode();
-        }
+
 
         private void EnableControlsBasedOnRole()
         {
