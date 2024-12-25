@@ -284,6 +284,8 @@
             // cmbStatus
             // 
             this.cmbStatus.FormattingEnabled = true;
+            this.cmbStatus.Items.AddRange(new object[] {
+            "выполнено"});
             this.cmbStatus.Location = new System.Drawing.Point(622, 341);
             this.cmbStatus.Name = "cmbStatus";
             this.cmbStatus.Size = new System.Drawing.Size(121, 21);
@@ -299,6 +301,10 @@
             // cmbPriority
             // 
             this.cmbPriority.FormattingEnabled = true;
+            this.cmbPriority.Items.AddRange(new object[] {
+            "Низкий",
+            "Средний",
+            "Высокий"});
             this.cmbPriority.Location = new System.Drawing.Point(622, 288);
             this.cmbPriority.Name = "cmbPriority";
             this.cmbPriority.Size = new System.Drawing.Size(121, 21);
@@ -350,6 +356,7 @@
             this.btnGenerateQRCode.TabIndex = 54;
             this.btnGenerateQRCode.Text = "Генирировать qr для отзыва";
             this.btnGenerateQRCode.UseVisualStyleBackColor = true;
+            this.btnGenerateQRCode.Click += new System.EventHandler(this.btnGenerateQRCode_Click);
             // 
             // notificationTimer
             // 

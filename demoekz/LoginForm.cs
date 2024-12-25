@@ -18,7 +18,7 @@ namespace demoekz
 
         public LoginForm()
         {
-            string connectionString = "Host=195.46.187.72;Port=5432;Username=postgres;Password=1337;Database=repair_service";
+            string connectionString = "Host=195.46.187.72;Port=5432;Username=postgres;Password=1337;Database=task_managment";
             _databaseManager = new UserManager(connectionString);
             InitializeComponent();
         }
