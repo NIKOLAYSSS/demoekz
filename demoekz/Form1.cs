@@ -1,32 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using Xceed.Words.NET;
 using System.Windows.Forms;
-using Npgsql;
-using QRCoder;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using System.IO;
 
 namespace demoekz
 {
     public partial class Form1 : Form
     {
         private string connectionString = "Host=195.46.187.72;Username=postgres;Password=1337;Database=task_managment";
-        private Guid selectedTaskId;
         private string currentUser;
         private string currentUserRole;
+        private TaskManager taskManager;
 
         public Form1(string username, string role)
         {
             InitializeComponent();
             currentUser = username;
             currentUserRole = role;
-
+            taskManager = new TaskManager(new DatabaseManager(connectionString));
+            notificationTimer = new Timer();
+            notificationTimer.Interval = 60000; // 60 секунд
+            notificationTimer.Tick += notificationTimer_Tick;
             notificationTimer.Start();
             EnableControlsBasedOnRole();
             LoadTasks();
@@ -34,33 +33,10 @@ namespace demoekz
 
         private void btnAddTask_Click(object sender, EventArgs e)
         {
-            try
+            var taskForm = new TaskForm(taskManager, currentUser);
+            if (taskForm.ShowDialog() == DialogResult.OK)
             {
-                using (var conn = new NpgsqlConnection(connectionString))
-                {
-                    conn.Open();
-                    using (var cmd = new NpgsqlCommand())
-                    {
-                        cmd.Connection = conn;
-                        cmd.CommandText = "INSERT INTO tasks (TaskNumber, CreationDate, ProjectName, TaskDescription, Priority, Assignee, Status, CompletionDate, CreatedBy) VALUES (@номер_задачи, @дата_создания, @название_проекта, @описание_задачи, @приоритет, @исполнитель, @статус, @дата_завершения, @создано_пользователем)";
-                        cmd.Parameters.AddWithValue("номер_задачи", int.Parse(txtTaskNumber.Text));
-                        cmd.Parameters.AddWithValue("дата_создания", dtpCreationDate.Value.Date);
-                        cmd.Parameters.AddWithValue("название_проекта", txtProjectName.Text);
-                        cmd.Parameters.AddWithValue("описание_задачи", txtTaskDescription.Text);
-                        cmd.Parameters.AddWithValue("приоритет", cmbPriority.SelectedItem.ToString());
-                        cmd.Parameters.AddWithValue("исполнитель", txtExecutor.Text);
-                        cmd.Parameters.AddWithValue("статус", cmbStatus.SelectedItem.ToString());
-                        cmd.Parameters.AddWithValue("дата_завершения", dtpDueDate.Value.Date);
-                        cmd.Parameters.AddWithValue("создано_пользователем", currentUser);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-                MessageBox.Show("Задача успешно добавлена!");
                 LoadTasks();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка: " + ex.Message);
             }
         }
 
@@ -68,31 +44,35 @@ namespace demoekz
         {
             try
             {
-                using (var conn = new NpgsqlConnection(connectionString))
+                var tasks = taskManager.GetTasks();
+                var dt = new DataTable();
+                dt.Columns.Add("TaskId", typeof(Guid));
+                dt.Columns.Add("TaskNumber", typeof(int));
+                dt.Columns.Add("CreationDate", typeof(DateTime));
+                dt.Columns.Add("ProjectName", typeof(string));
+                dt.Columns.Add("TaskDescription", typeof(string));
+                dt.Columns.Add("Priority", typeof(string));
+                dt.Columns.Add("Assignee", typeof(string));
+                dt.Columns.Add("Status", typeof(string));
+                dt.Columns.Add("CompletionDate", typeof(DateTime));
+                dt.Columns.Add("CreatedBy", typeof(string));
+
+                foreach (var task in tasks)
                 {
-                    conn.Open();
-                    using (var cmd = new NpgsqlCommand())
-                    {
-                        cmd.Connection = conn;
-                        cmd.CommandText = "SELECT TaskId, TaskNumber, CreationDate, ProjectName, TaskDescription, Priority, Assignee, Status, CompletionDate, CreatedBy FROM Tasks";
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            var dt = new DataTable();
-                            dt.Load(reader);
-                            dgvTasks.DataSource = dt;
-                            dgvTasks.Columns["TaskId"].HeaderText = "ID задачи";
-                            dgvTasks.Columns["TaskNumber"].HeaderText = "Номер задачи";
-                            dgvTasks.Columns["CreationDate"].HeaderText = "Дата создания";
-                            dgvTasks.Columns["ProjectName"].HeaderText = "Название проекта";
-                            dgvTasks.Columns["TaskDescription"].HeaderText = "Описание задачи";
-                            dgvTasks.Columns["Priority"].HeaderText = "Приоритет";
-                            dgvTasks.Columns["Assignee"].HeaderText = "Исполнитель";
-                            dgvTasks.Columns["Status"].HeaderText = "Статус";
-                            dgvTasks.Columns["CompletionDate"].HeaderText = "Дата завершения";
-                            dgvTasks.Columns["CreatedBy"].HeaderText = "Создано пользователем";
-                        }
-                    }
+                    dt.Rows.Add(task.TaskId, task.TaskNumber, task.CreationDate, task.ProjectName, task.TaskDescription, task.Priority, task.Assignee, task.Status, task.CompletionDate, task.CreatedBy);
                 }
+
+                dgvTasks.DataSource = dt;
+                dgvTasks.Columns["TaskId"].HeaderText = "ID задачи";
+                dgvTasks.Columns["TaskNumber"].HeaderText = "Номер задачи";
+                dgvTasks.Columns["CreationDate"].HeaderText = "Дата создания";
+                dgvTasks.Columns["ProjectName"].HeaderText = "Название проекта";
+                dgvTasks.Columns["TaskDescription"].HeaderText = "Описание задачи";
+                dgvTasks.Columns["Priority"].HeaderText = "Приоритет";
+                dgvTasks.Columns["Assignee"].HeaderText = "Исполнитель";
+                dgvTasks.Columns["Status"].HeaderText = "Статус";
+                dgvTasks.Columns["CompletionDate"].HeaderText = "Дата завершения";
+                dgvTasks.Columns["CreatedBy"].HeaderText = "Создано пользователем";
             }
             catch (Exception ex)
             {
@@ -112,17 +92,7 @@ namespace demoekz
                 Guid taskId = Guid.Parse(dgvTasks.SelectedRows[0].Cells["TaskId"].Value.ToString());
                 try
                 {
-                    using (var conn = new NpgsqlConnection(connectionString))
-                    {
-                        conn.Open();
-                        using (var cmd = new NpgsqlCommand())
-                        {
-                            cmd.Connection = conn;
-                            cmd.CommandText = "DELETE FROM Tasks WHERE TaskId = @TaskId";
-                            cmd.Parameters.AddWithValue("TaskId", taskId);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                    taskManager.DeleteTask(taskId);
                     MessageBox.Show("Задача успешно удалена!");
                     LoadTasks();
                 }
@@ -166,59 +136,17 @@ namespace demoekz
         {
             if (dgvTasks.SelectedRows.Count > 0)
             {
-                selectedTaskId = Guid.Parse(dgvTasks.SelectedRows[0].Cells["TaskId"].Value.ToString());
-                txtTaskNumber.Text = dgvTasks.SelectedRows[0].Cells["TaskNumber"].Value.ToString();
-                dtpCreationDate.Value = (DateTime)dgvTasks.SelectedRows[0].Cells["CreationDate"].Value;
-                txtProjectName.Text = dgvTasks.SelectedRows[0].Cells["ProjectName"].Value.ToString();
-                txtTaskDescription.Text = dgvTasks.SelectedRows[0].Cells["TaskDescription"].Value.ToString();
-                cmbPriority.SelectedItem = dgvTasks.SelectedRows[0].Cells["Priority"].Value.ToString();
-                txtExecutor.Text = dgvTasks.SelectedRows[0].Cells["Assignee"].Value.ToString();
-                cmbStatus.SelectedItem = dgvTasks.SelectedRows[0].Cells["Status"].Value.ToString();
-                dtpDueDate.Value = (DateTime)dgvTasks.SelectedRows[0].Cells["CompletionDate"].Value;
-
-
-                btnAddTask.Text = "Сохранить изменения";
-                btnAddTask.Click -= btnAddTask_Click;
-                btnAddTask.Click += btnSaveTask_Click;
+                Guid taskId = Guid.Parse(dgvTasks.SelectedRows[0].Cells["TaskId"].Value.ToString());
+                var task = taskManager.GetTasks().Find(t => t.TaskId == taskId);
+                var taskForm = new TaskForm(taskManager, currentUser, task);
+                if (taskForm.ShowDialog() == DialogResult.OK)
+                {
+                    LoadTasks();
+                }
             }
             else
             {
                 MessageBox.Show("Выберите задачу для редактирования.");
-            }
-        }
-
-        private void btnSaveTask_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                using (var conn = new NpgsqlConnection(connectionString))
-                {
-                    conn.Open();
-                    using (var cmd = new NpgsqlCommand())
-                    {
-                        cmd.Connection = conn;
-                        cmd.CommandText = "UPDATE Tasks SET TaskNumber = @TaskNumber, CreationDate = @CreationDate, ProjectName = @ProjectName, TaskDescription = @TaskDescription, Priority = @Priority, Assignee = @Assignee, Status = @Status, CompletionDate = @CompletionDate WHERE TaskId = @TaskId";
-                        cmd.Parameters.AddWithValue("TaskId", selectedTaskId);
-                        cmd.Parameters.AddWithValue("TaskNumber", int.Parse(txtTaskNumber.Text));
-                        cmd.Parameters.AddWithValue("CreationDate", dtpCreationDate.Value.Date);
-                        cmd.Parameters.AddWithValue("ProjectName", txtProjectName.Text);
-                        cmd.Parameters.AddWithValue("TaskDescription", txtTaskDescription.Text);
-                        cmd.Parameters.AddWithValue("Priority", cmbPriority.SelectedItem.ToString());
-                        cmd.Parameters.AddWithValue("Assignee", txtExecutor.Text);
-                        cmd.Parameters.AddWithValue("Status", cmbStatus.SelectedItem.ToString());
-                        cmd.Parameters.AddWithValue("CompletionDate", dtpDueDate.Value.Date);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-                MessageBox.Show("Задача успешно обновлена!");
-                LoadTasks();
-                btnAddTask.Text = "Добавить задачу";
-                btnAddTask.Click -= btnSaveTask_Click;
-                btnAddTask.Click += btnAddTask_Click;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка: " + ex.Message);
             }
         }
 
@@ -239,32 +167,35 @@ namespace demoekz
         {
             try
             {
-                using (var conn = new NpgsqlConnection(connectionString))
+                var tasks = taskManager.SearchTasks(searchTerm);
+                var dt = new DataTable();
+                dt.Columns.Add("TaskId", typeof(Guid));
+                dt.Columns.Add("TaskNumber", typeof(int));
+                dt.Columns.Add("CreationDate", typeof(DateTime));
+                dt.Columns.Add("ProjectName", typeof(string));
+                dt.Columns.Add("TaskDescription", typeof(string));
+                dt.Columns.Add("Priority", typeof(string));
+                dt.Columns.Add("Assignee", typeof(string));
+                dt.Columns.Add("Status", typeof(string));
+                dt.Columns.Add("CompletionDate", typeof(DateTime));
+                dt.Columns.Add("CreatedBy", typeof(string));
+
+                foreach (var task in tasks)
                 {
-                    conn.Open();
-                    using (var cmd = new NpgsqlCommand())
-                    {
-                        cmd.Connection = conn;
-                        cmd.CommandText = "SELECT TaskId, TaskNumber, CreationDate, ProjectName, TaskDescription, Priority, Assignee, Status, CompletionDate, CreatedBy FROM Tasks WHERE CAST(TaskNumber AS TEXT) = @searchTerm OR TaskDescription ILIKE @searchTerm";
-                        cmd.Parameters.AddWithValue("searchTerm", searchTerm);
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            var dt = new DataTable();
-                            dt.Load(reader);
-                            dgvTasks.DataSource = dt;
-                            dgvTasks.Columns["TaskId"].HeaderText = "ID задачи";
-                            dgvTasks.Columns["TaskNumber"].HeaderText = "Номер задачи";
-                            dgvTasks.Columns["CreationDate"].HeaderText = "Дата создания";
-                            dgvTasks.Columns["ProjectName"].HeaderText = "Название проекта";
-                            dgvTasks.Columns["TaskDescription"].HeaderText = "Описание задачи";
-                            dgvTasks.Columns["Priority"].HeaderText = "Приоритет";
-                            dgvTasks.Columns["Assignee"].HeaderText = "Исполнитель";
-                            dgvTasks.Columns["Status"].HeaderText = "Статус";
-                            dgvTasks.Columns["CompletionDate"].HeaderText = "Дата завершения";
-                            dgvTasks.Columns["CreatedBy"].HeaderText = "Создано пользователем";
-                        }
-                    }
+                    dt.Rows.Add(task.TaskId, task.TaskNumber, task.CreationDate, task.ProjectName, task.TaskDescription, task.Priority, task.Assignee, task.Status, task.CompletionDate, task.CreatedBy);
                 }
+
+                dgvTasks.DataSource = dt;
+                dgvTasks.Columns["TaskId"].HeaderText = "ID задачи";
+                dgvTasks.Columns["TaskNumber"].HeaderText = "Номер задачи";
+                dgvTasks.Columns["CreationDate"].HeaderText = "Дата создания";
+                dgvTasks.Columns["ProjectName"].HeaderText = "Название проекта";
+                dgvTasks.Columns["TaskDescription"].HeaderText = "Описание задачи";
+                dgvTasks.Columns["Priority"].HeaderText = "Приоритет";
+                dgvTasks.Columns["Assignee"].HeaderText = "Исполнитель";
+                dgvTasks.Columns["Status"].HeaderText = "Статус";
+                dgvTasks.Columns["CompletionDate"].HeaderText = "Дата завершения";
+                dgvTasks.Columns["CreatedBy"].HeaderText = "Создано пользователем";
             }
             catch (Exception ex)
             {
@@ -281,23 +212,10 @@ namespace demoekz
         {
             try
             {
-                using (var conn = new NpgsqlConnection(connectionString))
+                var tasks = taskManager.CheckTaskDeadlines();
+                foreach (var task in tasks)
                 {
-                    conn.Open();
-                    using (var cmd = new NpgsqlCommand())
-                    {
-                        cmd.Connection = conn;
-                        cmd.CommandText = "SELECT TaskNumber, TaskDescription FROM Tasks WHERE Status != 'выполнено' AND CompletionDate <= NOW()";
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                string taskNumber = reader["TaskNumber"].ToString();
-                                string taskDescription = reader["TaskDescription"].ToString();
-                                MessageBox.Show($"Задача {taskNumber}: {taskDescription} просрочена!");
-                            }
-                        }
-                    }
+                    MessageBox.Show($"Задача {task.TaskNumber}: {task.TaskDescription} просрочена!");
                 }
             }
             catch (Exception ex)
@@ -308,124 +226,15 @@ namespace demoekz
 
         private void btnCalculateStatistics_Click(object sender, EventArgs e)
         {
-            CalculateStatistics();
-        }
-        
-        
-        private void CalculateStatistics()
-        {
-            try
-            {
-                using (var conn = new NpgsqlConnection(connectionString))
-                {
-                    conn.Open();
-                    using (var cmd = new NpgsqlCommand())
-                    {
-                        cmd.Connection = conn;
-
-                        // Количество выполненных задач за указанный период
-                        cmd.CommandText = "SELECT COUNT(*) FROM Tasks WHERE Status = 'выполнено' AND CompletionDate BETWEEN @startDate AND @endDate";
-                        cmd.Parameters.AddWithValue("startDate", dtpStartDate.Value.Date);
-                        cmd.Parameters.AddWithValue("endDate", dtpEndDate.Value.Date);
-                        int completedTasks = Convert.ToInt32(cmd.ExecuteScalar());
-
-                        // Среднее время выполнения задачи в днях
-                        cmd.CommandText = @"
-                    SELECT AVG(CompletionDate - CreationDate)
-                    FROM Tasks
-                    WHERE Status = 'выполнено' AND CompletionDate BETWEEN @startDate AND @endDate";
-                        cmd.Parameters.AddWithValue("startDate", dtpStartDate.Value.Date);
-                        cmd.Parameters.AddWithValue("endDate", dtpEndDate.Value.Date);
-                        object averageCompletionTimeObj = cmd.ExecuteScalar();
-                        double? averageCompletionTime = averageCompletionTimeObj != DBNull.Value ? Convert.ToDouble(averageCompletionTimeObj) : (double?)null;
-
-                        // Статистика по проектам
-                        cmd.CommandText = @"
-                    SELECT ProjectName, COUNT(*)
-                    FROM Tasks
-                    WHERE Status = 'выполнено' AND CompletionDate BETWEEN @startDate AND @endDate
-                    GROUP BY ProjectName";
-                        cmd.Parameters.AddWithValue("startDate", dtpStartDate.Value.Date);
-                        cmd.Parameters.AddWithValue("endDate", dtpEndDate.Value.Date);
-                        var projectStatistics = new DataTable();
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            projectStatistics.Load(reader);
-                        }
-
-                        // Статистика по исполнителям
-                        cmd.CommandText = @"
-                    SELECT Assignee, COUNT(*)
-                    FROM Tasks
-                    WHERE Status = 'выполнено' AND CompletionDate BETWEEN @startDate AND @endDate
-                    GROUP BY Assignee";
-                        cmd.Parameters.AddWithValue("startDate", dtpStartDate.Value.Date);
-                        cmd.Parameters.AddWithValue("endDate", dtpEndDate.Value.Date);
-                        var executorStatistics = new DataTable();
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            executorStatistics.Load(reader);
-                        }
-
-                        // Отображение статистики с новым абзацем
-                        StringBuilder sb = new StringBuilder();
-                        sb.AppendLine($"Количество выполненных задач: {completedTasks}\n");
-
-                        sb.AppendLine($"Среднее время выполнения задачи: {(averageCompletionTime.HasValue ? averageCompletionTime.Value : 0)} дней\n");
-
-                        sb.AppendLine("Статистика по проектам:");
-                        foreach (DataRow row in projectStatistics.Rows)
-                        {
-                            sb.AppendLine($"{row[0]}: {row[1]} задач");
-                        }
-
-                        sb.AppendLine("\nСтатистика по исполнителям:");
-                        foreach (DataRow row in executorStatistics.Rows)
-                        {
-                            sb.AppendLine($"{row[0]}: {row[1]} задач");
-                        }
-
-                        txtStatistics.Text = sb.ToString();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка: " + ex.Message);
-            }
+            var statisticsForm = new StatisticsForm(taskManager);
+            statisticsForm.ShowDialog();
         }
 
         private void BtnGenerateQRCode_Click(object sender, EventArgs e)
         {
-            // Получаем данные из текстового поля
-            string qrCodeText = "https://docs.google.com/forms/d/e/1FAIpQLSfkJf4oLCYcKbQggFu97aT6VplRHjBeAAj23LbdNANcQoncPw/viewform?usp=dialog";
-
-            if (string.IsNullOrEmpty(qrCodeText))
-            {
-                MessageBox.Show("Введите данные для генерации QR-кода.");
-                return;
-            }
-
-            try
-            {
-                // Генерация QR-кода с помощью QRCoder
-                QRCodeGenerator qrGenerator = new QRCodeGenerator();
-                QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrCodeText, QRCodeGenerator.ECCLevel.Q); // Создаем данные QR
-
-                // Генерация QR-кода как изображение
-                QRCode qrCode = new QRCode(qrCodeData);
-                Bitmap qrCodeImage = qrCode.GetGraphic(3); // 20 - это размер пикселей QR-кода
-
-                // Отображаем QR-код в PictureBox
-                pictureBoxQRCode.Image = qrCodeImage;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка при генерации QR-кода: " + ex.Message);
-            }
+            var qrCodeForm = new QRCodeForm();
+            qrCodeForm.ShowDialog();
         }
-
-
 
         private void EnableControlsBasedOnRole()
         {
@@ -452,13 +261,7 @@ namespace demoekz
             btnAddTask.Visible = true;
             btnDeleteTask.Visible = true;
             btnEditTask.Visible = true;
-            lblStartDate.Visible = true;
-            lblEndDate.Visible = true;
-            dtpStartDate.Visible = true;
-            dtpEndDate.Visible = true;
             btnCalculateStatistics.Visible = true;
-            txtStatistics.Visible = true;
-            lblStatistics.Visible = true;
         }
 
         private void EnableManagerControls()
@@ -467,13 +270,7 @@ namespace demoekz
             btnAddTask.Visible = true;
             btnDeleteTask.Visible = true;
             btnEditTask.Visible = true;
-            lblStartDate.Visible = true;
-            lblEndDate.Visible = true;
-            dtpStartDate.Visible = true;
-            dtpEndDate.Visible = true;
             btnCalculateStatistics.Visible = true;
-            txtStatistics.Visible = true;
-            lblStatistics.Visible = true;
             btnGenerateQRCode.Visible = false;
         }
 
@@ -484,13 +281,7 @@ namespace demoekz
             btnDeleteTask.Visible = true;
             btnEditTask.Visible = true;
             btnGenerateQRCode.Visible = true;
-            lblStartDate.Visible = false;
-            lblEndDate.Visible = false;
-            dtpStartDate.Visible = false;
-            dtpEndDate.Visible = false;
             btnCalculateStatistics.Visible = false;
-            txtStatistics.Visible = false;
-            lblStatistics.Visible = false;
         }
 
         private void DisableControls()
@@ -501,6 +292,32 @@ namespace demoekz
             btnRefreshTasks.Enabled = false;
             btnSearch.Enabled = false;
             btnCalculateStatistics.Enabled = false;
+        }
+
+        private void btnDocumentation_Click(object sender, EventArgs e)
+        {
+            string docxPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "C:\\Users\\Николай\\source\\repos\\demoekz\\demoekz\\Demo.docx");
+
+            try
+            {
+                if (File.Exists(docxPath))
+                {
+                    // Открываем документ в Microsoft Word
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = docxPath,
+                        UseShellExecute = true // Используем системный обработчик по умолчанию
+                    });
+                }
+                else
+                {
+                    MessageBox.Show("Файл документации не найден.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка открытия документации: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

@@ -8,14 +8,16 @@ namespace demoekz
 {
     public class Task
     {
-        public int TaskId { get; set; }
+        public Guid TaskId { get; set; }
         public int TaskNumber { get; set; }
         public DateTime CreationDate { get; set; }
         public string ProjectName { get; set; }
         public string TaskDescription { get; set; }
         public string Priority { get; set; }
-        public string Executor { get; set; }
+        public string Assignee { get; set; }
         public string Status { get; set; }
-        public string CreatedBy { get; set; } // Добавлено поле для хранения имени пользователя, создавшего задачу
+        public DateTime CompletionDate { get; set; }
+        public string CreatedBy { get; set; }
     }
+
 }
